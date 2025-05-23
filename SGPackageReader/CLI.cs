@@ -1,4 +1,5 @@
-﻿using Serilog;
+﻿using System.Text.Json;
+using Serilog;
 using SGLib;
 using SixLabors.ImageSharp;
 
@@ -6,6 +7,9 @@ namespace SGPackageReader;
 
 internal static class CLI
 {
+    private static readonly JsonSerializerOptions PrettyJson = new JsonSerializerOptions
+        { IndentSize = 2, WriteIndented = true };
+    
     /// <summary>
     /// Prints information about a manifest (*.pkg_manifest) file.
     /// </summary>
@@ -43,7 +47,8 @@ internal static class CLI
     /// </summary>
     /// <param name="packagePath">The file to read from</param>
     /// <param name="outputFolder">The folder to output to</param>
-    public static void DumpAssets(string packagePath, string outputFolder = "package-dump")
+    /// <param name="atlasJson">The folder to output to</param>
+    public static void DumpAssets(string packagePath, string outputFolder = "package-dump", bool atlasJson = false)
     {
         Log.Information("Loading: {FilePath}", packagePath);
         using var s = File.OpenRead(packagePath);
@@ -74,6 +79,30 @@ internal static class CLI
                 
                 tex.Value.Mips[0].Save(path);
                 Log.Debug("Saved: {Path}", path);
+            }
+        }
+
+        if (atlasJson)
+        {
+            foreach (var kv in pkg.LoadedAtlasMaps)
+            {
+                var atlasName = kv.Key;
+                var amap = kv.Value;
+                
+                if (Path.IsPathRooted(atlasName))
+                {
+                    atlasName = atlasName.Substring(Path.GetPathRoot(atlasName)?.Length ?? 0);
+                }
+                
+                var path = Path.Combine(outputFolder, atlasName + ".json");
+                var dir = Path.GetDirectoryName(path);
+                if (dir != null && !Directory.Exists(dir))
+                {
+                    Directory.CreateDirectory(dir);
+                }
+                
+                File.WriteAllText(path, JsonSerializer.Serialize(amap, PrettyJson));
+                Log.Debug("Dumped atlas to JSON: {Name}", atlasName);
             }
         }
         

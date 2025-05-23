@@ -86,7 +86,6 @@ public class PackageManifest
             return ReadingStatus.Errored;
         }
 
-        var startPosition = chunk.Position;
         var header = chunk.ReadInt32();
         var flagsVersion = 0;
         int entryCount;
@@ -201,7 +200,7 @@ public class PackageManifest
         return ReadingStatus.Successful;
     }
 
-    private static SiblingTextureType GetSiblingTextureType(string textureName)
+    public static SiblingTextureType GetSiblingTextureType(string textureName)
     {
         if (textureName.EndsWith("_normal"))
         {

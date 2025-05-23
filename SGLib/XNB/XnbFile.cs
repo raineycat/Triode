@@ -107,7 +107,10 @@ public class XnbFile
             using var lzx = new LzxDecoderStream(s, (int)decompressedSize, (int)compressedSize);
             lzx.CopyTo(ms);
             buffer = ms.GetBuffer();
+            
+#if false
             File.WriteAllBytes("DECOMPRESSED.bin", buffer);
+#endif
         }
         else
         {

@@ -22,6 +22,14 @@ public struct AtlasMap
 
     public bool IsMip => (_flags & MipMask) != 0;
     public bool IsBink => (_flags & BinkMask) != 0;
+    
+    public AtlasMap(Rectangle rect, Point topLeft, Point originalSize, Vector2 scaleRatio)
+    {
+        Rect = rect;
+        Origin = topLeft;
+        ScaleRatio = scaleRatio;
+        m_origSize = originalSize;
+    }
 
     public AtlasMap(Rectangle rect, Point topLeft, Point originalSize, Vector2 scaleRatio, int id, bool isMultiTexture,
         SiblingTextureType siblingType)
