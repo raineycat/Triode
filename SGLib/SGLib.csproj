@@ -9,6 +9,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="BCnEncoder.Net.ImageSharp" Version="1.1.2" />
       <PackageReference Include="LibSquishNet" Version="2.0.0" />
       <PackageReference Include="Serilog" Version="4.2.0" />
       <PackageReference Include="SixLabors.ImageSharp" Version="3.1.8" />

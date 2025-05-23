@@ -1,4 +1,8 @@
-﻿using Serilog;
+﻿using System.Runtime.InteropServices;
+using BCnEncoder.Decoder;
+using BCnEncoder.ImageSharp;
+using BCnEncoder.Shared;
+using Serilog;
 using SixLabors.ImageSharp;
 using SixLabors.ImageSharp.PixelFormats;
 using Squish;
@@ -16,6 +20,7 @@ public static class XnbTexture2DReader
         // surely there's no need for this to change????
         var format = version switch
         {
+            XnbVersion.SuperGiantCustom => (XnbSurfaceFormat)formatCode,
             XnbVersion.GameStudio4 => (XnbSurfaceFormat)formatCode,
             XnbVersion.XnaFramework31 => formatCode switch
             {
@@ -37,14 +42,12 @@ public static class XnbTexture2DReader
             var dataSize = r.ReadUInt32();
             var buffer = new byte[dataSize];
             r.BaseStream.Read(buffer);
-            byte[] outBuffer;
+            Image img;
 
-            bool swapColours = false;
             switch (format)
             {
                 case XnbSurfaceFormat.ColorBGRA:
-                    outBuffer = buffer;
-                    swapColours = true;
+                    img = Image.LoadPixelData<Bgra32>(buffer, (int)width, (int)height);
                     break;
 
                 case XnbSurfaceFormat.Dxt1:
@@ -52,7 +55,7 @@ public static class XnbTexture2DReader
                 case XnbSurfaceFormat.Dxt5:
                 {
                     // guess the size based on an RGBA image
-                    outBuffer = new byte[4 * width * height];
+                    var outBuffer = new byte[4 * width * height];
                     var flags = format switch
                     {
                         XnbSurfaceFormat.Dxt1 => SquishFlags.kDxt1,
@@ -62,10 +65,18 @@ public static class XnbTexture2DReader
 
                     Log.Debug("Using LibSquish: {Flags}", flags);
                     Squish.Squish.DecompressImage(outBuffer, (int)width, (int)height, buffer, flags);
+                    img = Image.LoadPixelData<Rgba32>(outBuffer, (int)width, (int)height);
                     break;
                 }
 
-                default:
+                case XnbSurfaceFormat.Bc7:
+                {
+                    var dec = new BcDecoder();
+                    img = dec.DecodeRawToImageRgba32(buffer, (int)width, (int)height, CompressionFormat.Bc7);
+                    break;
+                }
+
+            default:
                     throw new XnbException("Unsupported surface format! " + format);
             }
 
@@ -74,16 +85,7 @@ public static class XnbTexture2DReader
             File.WriteAllBytes(dumpPath, outBuffer);
             Log.Debug("Dumped texture blob to: {Path}", dumpPath);
 #endif
-
-            Image img;
-            if (swapColours)
-            {
-                img = Image.LoadPixelData<Bgra32>(outBuffer, (int)width, (int)height);
-            }
-            else
-            {
-                img = Image.LoadPixelData<Rgba32>(outBuffer, (int)width, (int)height);
-            }
+            
             tex.Mips.Add(img);
         }
 
@@ -96,14 +98,20 @@ public static class XnbTexture2DReader
     {
         using var ms = new MemoryStream(xnb.Contents, false);
         using var r = new BinaryReader(ms);
-        var poly = r.ReadByte();
-        if (poly > 0)
+
+        if (xnb.Version is XnbVersion.XnaFramework31 or XnbVersion.GameStudio4)
         {
-            return LoadImage(r, xnb.Version);
+            var poly = r.ReadByte();
+            if (poly > 0)
+            {
+                return LoadImage(r, xnb.Version);
+            }
+            else
+            {
+                throw new XnbException("Invalid poly byte");
+            }
         }
-        else
-        {
-            throw new XnbException("Invalid poly byte");
-        }
+
+        return LoadImage(r, xnb.Version);
     }
 }

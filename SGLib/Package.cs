@@ -8,7 +8,7 @@ namespace SGLib;
 public class Package
 {
     private static byte[] _buffer = new byte[0x800000];
-    private static readonly byte[] _compressionBuffer = new byte[0x800000];
+    private static byte[] _compressionBuffer = new byte[0x800000];
     private static readonly LZF _lzf = new();
 
     public Dictionary<string, XnbTexture2D> LoadedTextures = [];
@@ -49,6 +49,13 @@ public class Package
             if (isCompressed && s.ReadByte() != 0)
             {
                 var compressedSize = s.ReadInt32();
+                if (compressedSize > _compressionBuffer.Length)
+                {
+                    Log.Warning("Resizing buffers! (Pyre)");
+                    _buffer = new byte[0x2_000_000];
+                    _compressionBuffer = new byte[0x2_000_000];
+                }
+                
                 s.Read(_compressionBuffer, 0, compressedSize);
                 readBytes = _lzf.Decompress(_compressionBuffer, compressedSize, _buffer, _buffer.Length);
                 Log.Debug("Decompressed package: {CompressedSize} > {ActualSize}", compressedSize, readBytes);

@@ -30,22 +30,8 @@ public class XnbFile
         }
     }
 
-    public bool IsCompressed
-    {
-        get => Flags.HasFlag(XnbFlags.Compressed);
-        set
-        {
-            if (value)
-            {
-                Flags |= XnbFlags.Compressed;
-            }
-            else
-            {
-                Flags &= ~(XnbFlags.Compressed);
-            }
-        }
-    }
-    
+    public bool IsCompressed => Flags.HasFlag(XnbFlags.CompressedWithLZX) || Flags.HasFlag(XnbFlags.CompressedWithLZ4);
+
     public static XnbFile LoadFrom(Stream s)
     {
 #if false
@@ -73,6 +59,7 @@ public class XnbFile
             case XnbPlatform.WindowsDesktop:
             case XnbPlatform.WindowsPhone:
             case XnbPlatform.Xbox360:
+            case XnbPlatform.Playstation:
                 break;
             
             default:
@@ -85,6 +72,7 @@ public class XnbFile
         {
             case XnbVersion.XnaFramework31:
             case XnbVersion.GameStudio4:
+            case XnbVersion.SuperGiantCustom:
                 break;
             
             default:
@@ -104,8 +92,16 @@ public class XnbFile
             var decompressedSize = reader.ReadUInt32();
             using var ms = new MemoryStream((int)decompressedSize);
 
-            using var lzx = new LzxDecoderStream(s, (int)decompressedSize, (int)compressedSize);
-            lzx.CopyTo(ms);
+            if (xnb.Flags.HasFlag(XnbFlags.CompressedWithLZX))
+            {
+                using var lzx = new LzxDecoderStream(s, (int)decompressedSize, (int)compressedSize);
+                lzx.CopyTo(ms);
+            }
+            else
+            {
+                throw new XnbException("Unsupported compression type!");
+            }
+            
             buffer = ms.GetBuffer();
             
 #if false
@@ -121,17 +117,21 @@ public class XnbFile
         var actualStream = new MemoryStream(buffer);
         reader.Dispose();
         reader = new BinaryReader(actualStream, Encoding.ASCII, true);
-        
-        var numTypeReaders = reader.Read7BitEncodedInt();
-        //xnb.TypeReaders = new Dictionary<string, int>();
-        for (var i = 0; i < numTypeReaders; i++)
+
+        if (xnb.Version is XnbVersion.XnaFramework31 or XnbVersion.GameStudio4)
         {
-            var name = reader.ReadString();
-            var version = reader.ReadInt32();
-            xnb.TypeReaders.Add(name, version);
+            var numTypeReaders = reader.Read7BitEncodedInt();
+            //xnb.TypeReaders = new Dictionary<string, int>();
+            for (var i = 0; i < numTypeReaders; i++)
+            {
+                var name = reader.ReadString();
+                var version = reader.ReadInt32();
+                xnb.TypeReaders.Add(name, version);
+            }
+        
+            xnb.SharedResourceCount = reader.Read7BitEncodedInt();
         }
         
-        xnb.SharedResourceCount = reader.Read7BitEncodedInt();
         var contentsStartPos = (int)reader.BaseStream.Position;
         // Log.Debug("XNB content starts at: {Pos}", contentsStartPos);
         
