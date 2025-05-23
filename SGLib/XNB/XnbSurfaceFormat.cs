@@ -2,7 +2,7 @@
 
 public enum XnbSurfaceFormat
 {
-    Color,
+    ColorBGRA,
     Bgr565,
     Bgra5551,
     Bgra4444,

@@ -7,10 +7,27 @@ namespace SGLib.XNB;
 
 public static class XnbTexture2DReader
 {
-    public static XnbTexture2D LoadImage(BinaryReader r)
+    public static XnbTexture2D LoadImage(BinaryReader r, XnbVersion version)
     {
         var tex = new XnbTexture2D();
-        var format = (XnbSurfaceFormat)r.ReadInt32();
+        var formatCode = r.ReadInt32();
+        
+        // why did this change??
+        // surely there's no need for this to change????
+        var format = version switch
+        {
+            XnbVersion.GameStudio4 => (XnbSurfaceFormat)formatCode,
+            XnbVersion.XnaFramework31 => formatCode switch
+            {
+                1 => XnbSurfaceFormat.ColorBGRA,
+                28 => XnbSurfaceFormat.Dxt1,
+                30 => XnbSurfaceFormat.Dxt3,
+                32 => XnbSurfaceFormat.Dxt5,
+                _ => throw new XnbException("Unsupported (legacy) surface format")
+            },
+            _ => throw new XnbException("Unknown XNB version")
+        };
+        
         var width = r.ReadUInt32();
         var height = r.ReadUInt32();
         var mipCount = r.ReadUInt32();
@@ -25,7 +42,7 @@ public static class XnbTexture2DReader
             bool swapColours = false;
             switch (format)
             {
-                case XnbSurfaceFormat.Color:
+                case XnbSurfaceFormat.ColorBGRA:
                     outBuffer = buffer;
                     swapColours = true;
                     break;
@@ -82,7 +99,7 @@ public static class XnbTexture2DReader
         var poly = r.ReadByte();
         if (poly > 0)
         {
-            return LoadImage(r);
+            return LoadImage(r, xnb.Version);
         }
         else
         {

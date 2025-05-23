@@ -1,6 +1,7 @@
-﻿using System.Text;
+﻿using System.Runtime.InteropServices;
+using System.Text;
 using Serilog;
-using XCompression;
+using SGLib.XNB.Compression;
 
 namespace SGLib.XNB;
 
@@ -82,6 +83,7 @@ public class XnbFile
         xnb.Version = (XnbVersion)s.ReadByte();
         switch (xnb.Version)
         {
+            case XnbVersion.XnaFramework31:
             case XnbVersion.GameStudio4:
                 break;
             
@@ -94,20 +96,23 @@ public class XnbFile
 
         var reader = new BinaryReader(s, Encoding.ASCII, true);
         var compressedSize = reader.ReadUInt32();
-        var buffer = new byte[compressedSize];
-        var readBytes = s.Read(buffer);
+        var bufferBeginPos = s.Position;
+        byte[] buffer;
 
         if (xnb.IsCompressed)
         {
             var decompressedSize = reader.ReadUInt32();
-            var decompressedActual = (int)decompressedSize;
-            var newBuffer = new byte[decompressedSize];
-            
-            using var xmc = new DecompressionContext();
-            xmc.Decompress(buffer, 0, ref readBytes, 
-                newBuffer, 0, ref decompressedActual);
+            using var ms = new MemoryStream((int)decompressedSize);
 
-            buffer = newBuffer;
+            using var lzx = new LzxDecoderStream(s, (int)decompressedSize, (int)compressedSize);
+            lzx.CopyTo(ms);
+            buffer = ms.GetBuffer();
+            File.WriteAllBytes("DECOMPRESSED.bin", buffer);
+        }
+        else
+        {
+            buffer = new byte[compressedSize];
+            var readBytes = s.Read(buffer);
         }
 
         var actualStream = new MemoryStream(buffer);
