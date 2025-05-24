@@ -29,7 +29,7 @@ public class PackageManifest
     {
         var manifest = new PackageManifest();
         var contentLength = (int)(s.Length - 4);
-        var readStatus = ReadingStatus.Successful;
+        ReadingStatus readStatus;
 
         var included = new Queue<string>();
         included.Enqueue(rootPackageName);
@@ -119,32 +119,69 @@ public class PackageManifest
             var sizeInAtlas = new Point(chunk.ReadInt32(), chunk.ReadInt32());
             var scale = new Vector2(chunk.ReadFloat(), chunk.ReadFloat());
 
-            var rotated = false;
-            var trimmed = false;
+            var isMultiTexture = false;
+            var isMip = false;
+            var isAlpha8 = false;
 
             if (flagsVersion > 0)
             {
                 var flags = chunk.ReadByte();
                 if (flagsVersion > 1)
                 {
-                    rotated = (flags & 1) != 0;
-                    trimmed = (flags & 2) != 0;
+                    isMultiTexture = (flags & 1) != 0;
+                    isMip = (flags & 2) != 0;
+                    
+                    if (flagsVersion > 3)
+                    {
+                        isAlpha8 = (flags & 4) != 0;
+                    }
                 }
                 else
                 {
-                    rotated = flags != 0;
+                    isMultiTexture = flags != 0;
                 }
+            }
+            
+            List<Point>? pointList = null;
+            if (flagsVersion > 2)
+            {
+                var pointCount = chunk.ReadInt32();
+                if (pointCount > 0)
+                {
+                    pointList = [];
+                    for (var j = 0; j < pointCount; j++)
+                    {
+                        var px = chunk.ReadInt32();
+                        var py = chunk.ReadInt32();
+                        pointList.Add(new Point(px, py));
+                    }
+                }
+            }
+
+            AtlasMap map;
+            if (pointList == null)
+            {
+                map = new AtlasMap(
+                    rect, offset, sizeInAtlas, scale,
+                    manifest._nextAtlasId++,
+                    isMultiTexture, isMip, false,
+                    GetSiblingTextureType(textureName)
+                );
+            }
+            else
+            {
+                map = new AtlasMap(
+                    rect, offset, sizeInAtlas, scale,
+                    isMultiTexture,
+                    GetSiblingTextureType(textureName),
+                    pointList, isMip, false, isAlpha8
+                );
             }
 
             manifest.AtlasEntries.Add(new ManifestAtlasEntry
             {
                 Name = textureName,
-                AtlasMap = new AtlasMap(
-                    rect, offset, sizeInAtlas, scale,
-                    manifest._nextAtlasId++,
-                    rotated, trimmed, false,
-                    GetSiblingTextureType(textureName)
-                )
+                AtlasMap = map
             });
         }
 
