@@ -12,6 +12,7 @@ public class Package
     private static readonly LZF _lzf = new();
 
     public Dictionary<string, XnbTexture2D> LoadedTextures = [];
+    public Dictionary<string, XnbTexture3D> LoadedTextures3D = [];
     public Dictionary<string, AtlasMap> LoadedAtlasMaps = [];
 
     private int _nextAtlasId = 1;
@@ -91,7 +92,7 @@ public class Package
         return chunkType switch
         {
             -1 => ReadingStatus.ReachedFileEnd,
-            0xAA => LogUnimplementedChunk(chunkType, "Texture3D"),
+            0xAA => ReadTexture3DV5(chunk, pkg, assetList),
             0xAD => ReadTexture2DV5(chunk, pkg, assetList),
             0xBB => ReadBinkV5(chunk, assetList),
             0xBE => ReadingStatus.ReachedChunkEnd,
@@ -152,6 +153,38 @@ public class Package
         catch (Exception e)
         {
             Log.Error("Failed to read texture {Name}: {Error}", textureName, e);
+            return ReadingStatus.Errored;
+        }
+    }
+
+    private static ReadingStatus ReadTexture3DV5(Stream chunk, Package pkg, List<string> assetList)
+    {
+        var textureName = chunk.ReadString();
+        var size = chunk.ReadInt32();
+
+        if (size <= 0)
+        {
+            Log.Error("Failed to load 3D texture {Name}: Size ({Size}) is less than 0", textureName, size);
+            return ReadingStatus.Errored;
+        }
+        else
+        {
+            Log.Information("Reading 3D texture: {Name} ({Size})", textureName, size);
+        }
+
+        try
+        {
+            var buffer = new byte[size];
+            chunk.Read(buffer);
+            using var ms = new MemoryStream(buffer);
+            var xnb = XnbFile.LoadFrom(ms);
+            assetList.Add(textureName);
+            pkg.LoadedTextures3D.Add(textureName, xnb.LoadTexture3D());
+            return ReadingStatus.Successful;
+        }
+        catch (Exception e)
+        {
+            Log.Error("Failed to read 3D texture {Name}: {Error}", textureName, e);
             return ReadingStatus.Errored;
         }
     }

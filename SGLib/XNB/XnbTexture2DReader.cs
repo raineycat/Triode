@@ -68,6 +68,30 @@ public static class XnbTexture2DReader
                     img = Image.LoadPixelData<Rgba32>(outBuffer, (int)width, (int)height);
                     break;
                 }
+                
+                case XnbSurfaceFormat.Rgba1010102:
+                    img = Image.LoadPixelData<Rgba1010102>(buffer, (int)width, (int)height);
+                    break;
+                
+                case XnbSurfaceFormat.Rg32:
+                    img = Image.LoadPixelData<Rg32>(buffer, (int)width, (int)height);
+                    break;
+                
+                case XnbSurfaceFormat.Rgba64:
+                    img = Image.LoadPixelData<Rgba64>(buffer, (int)width, (int)height);
+                    break;
+                
+                case XnbSurfaceFormat.Alpha8:
+                    img = Image.LoadPixelData<A8>(buffer, (int)width, (int)height);
+                    break;
+                
+                case XnbSurfaceFormat.Luminance:
+                    img = Image.LoadPixelData<L8>(buffer, (int)width, (int)height);
+                    break;
+
+                case XnbSurfaceFormat.LuminanceAlpha:
+                    img = Image.LoadPixelData<La16>(buffer, (int)width, (int)height);
+                    break;
 
                 case XnbSurfaceFormat.Bc7:
                 {

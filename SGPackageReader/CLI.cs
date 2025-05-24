@@ -81,6 +81,29 @@ internal static class CLI
                 Log.Debug("Saved: {Path}", path);
             }
         }
+        
+        foreach(var tex in pkg.LoadedTextures3D)
+        {
+            var texName = tex.Key;
+            if (Path.IsPathRooted(texName))
+            {
+                texName = texName.Substring(Path.GetPathRoot(texName)?.Length ?? 0);
+            }
+            
+            var dir = Path.Combine(outputFolder, texName);
+            if (!Directory.Exists(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+            
+            var count = 0;
+            foreach (var slice in tex.Value.Slices)
+            {
+                slice.Save(Path.Combine(dir, $"{++count}.png"));
+            }
+            
+            Log.Debug("Saved: {Path}/*.png ({Count} slices)", dir, tex.Value.Depth);
+        }
 
         if (atlasJson)
         {
