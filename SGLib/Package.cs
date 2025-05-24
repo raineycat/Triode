@@ -69,7 +69,7 @@ public class Package
             do
             {
                 var assetStartPosInFile = chunkStartPosInFile + chunk.Position;
-                Log.Debug("ReadAssetV5 @ {PosInFile}", assetStartPosInFile);
+                Log.Debug("ReadAssetV5 @ {PosInFile:x8}", assetStartPosInFile);
                 readStatus = ReadAssetV5(chunk, pkg, assetList, includePackages);
             } while (readStatus != ReadingStatus.ReachedChunkEnd && readStatus != ReadingStatus.ReachedFileEnd);
             // ProcessMultiTextureAtlasMaps();
@@ -91,12 +91,14 @@ public class Package
         return chunkType switch
         {
             -1 => ReadingStatus.ReachedFileEnd,
-            0xAD => ReadTextureV5(chunk, pkg, assetList),
+            0xAA => LogUnimplementedChunk(chunkType, "Texture3D"),
+            0xAD => ReadTexture2DV5(chunk, pkg, assetList),
             0xBB => ReadBinkV5(chunk, assetList),
             0xBE => ReadingStatus.ReachedChunkEnd,
             0xCC => ReadIncludePackageV5(chunk, includePackages),
             0xDE => ReadAtlasV5(chunk, pkg, assetList),
-            0xEE => ReadBinkAtlasV5(chunk, assetList),
+            0xEE => LogUnimplementedChunk(chunkType, "BinkAtlas"),
+            0xF0 => LogUnimplementedChunk(chunkType, "SpineAnim"),
             0xFF => ReadingStatus.ReachedFileEnd,
             _ => LogChunkError(chunkType)
         };
@@ -108,15 +110,21 @@ public class Package
         return ReadingStatus.Errored;
     }
 
+    private static ReadingStatus LogUnimplementedChunk(int type, string name)
+    {
+        Log.Error("Chunk type 0x{Type:X2} '{Name}' not implemented!", type, name);
+        return ReadingStatus.Errored;
+    }
+    
     private static ReadingStatus ReadIncludePackageV5(Stream chunk, Queue<string> includePackages)
     {
         var packageName = chunk.ReadString();
-        Log.Debug("Include package: {Name}", packageName);
+        Log.Information("Include package: {Name}", packageName);
         includePackages.Enqueue(packageName);
         return ReadingStatus.Successful;
     }
 
-    private static ReadingStatus ReadTextureV5(Stream chunk, Package pkg, List<string> assetList)
+    private static ReadingStatus ReadTexture2DV5(Stream chunk, Package pkg, List<string> assetList)
     {
         var textureName = chunk.ReadString();
         var size = chunk.ReadInt32();
@@ -125,6 +133,10 @@ public class Package
         {
             Log.Error("Failed to load texture {Name}: Size ({Size}) is less than 0", textureName, size);
             return ReadingStatus.Errored;
+        }
+        else
+        {
+            Log.Information("Reading texture: {Name} ({Size})", textureName, size);
         }
 
         try
@@ -219,17 +231,6 @@ public class Package
         }
 
         chunk.ReadByte(); // Discard separator byte (0xAD)
-        return ReadTextureV5(chunk, pkg, assetList);
-    }
-    
-    private static ReadingStatus ReadBinkAtlasV5(Stream chunk, List<string> assetList)
-    {
-        Log.Warning("ReadBinkAtlasV5: Function is not implemented!");
-        return ReadingStatus.Errored;
-    }
-
-    private static void ProcessMultiTextureAtlasMaps()
-    {
-        Log.Warning("ProcessMultiTextureAtlasMaps: Not implemented!");
+        return ReadTexture2DV5(chunk, pkg, assetList);
     }
 }
